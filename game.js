@@ -15,14 +15,48 @@
     { x: 3330, y: 370, w: 205 }, { x: 3790, y: 334, w: 220 },
     { x: 4280, y: 369, w: 200 }, { x: 4690, y: 334, w: 190 }
   ];
-  const enemySpawns = [
-    400, 610, 830, 1080, 1290, 1530, 1780, 2050, 2240, 2490,
-    2710, 2950, 3180, 3430, 3650, 3890, 4130, 4360, 4600, 4820
+  const stages = [
+    {
+      name: 'IRON OUTPOST', start: 0, length: 1720, bossName: 'OUTPOST WALKER', bossHp: 12,
+      enemySpawns: [400, 610, 830, 1080, 1290, 1430],
+      palette: {
+        skyTop: '#142526', skyMid: '#314139', skyBottom: '#786147', sun: '#d9bf76',
+        far: '#283a35', near: '#1d2b28', windows: '#71866b', ground: '#263d2d',
+        groundTop: '#75844a', groundStripe: '#364b34', groundShadow: '#202f2b',
+        platform: '#43533a', platformTop: '#a4a75d', platformBlocks: '#2c3c31',
+        platformDetail: '#687248', grass: '#526348', enemyVest: '#b65337',
+        enemyHelmet: '#e28343', boss: '#8d4334', bossHighlight: '#ba6841'
+      }
+    },
+    {
+      name: 'ASHFALL RUINS', start: 1720, length: 1720, bossName: 'ASHFALL MECH', bossHp: 16,
+      enemySpawns: [260, 500, 760, 1010, 1260, 1430],
+      palette: {
+        skyTop: '#302a2b', skyMid: '#725042', skyBottom: '#b18156', sun: '#f0c77c',
+        far: '#574239', near: '#3d302d', windows: '#ba8b5a', ground: '#453a32',
+        groundTop: '#bb8750', groundStripe: '#66503b', groundShadow: '#2c2927',
+        platform: '#66503d', platformTop: '#d0a45f', platformBlocks: '#40342e',
+        platformDetail: '#967345', grass: '#a18455', enemyVest: '#a04d34',
+        enemyHelmet: '#d08b53', boss: '#a65b42', bossHighlight: '#d4874e'
+      }
+    },
+    {
+      name: 'NIGHT FORTRESS', start: 3440, length: 1720, bossName: 'FORTRESS CORE', bossHp: 20,
+      enemySpawns: [250, 500, 750, 1000, 1260, 1430],
+      palette: {
+        skyTop: '#172432', skyMid: '#32484e', skyBottom: '#74816c', sun: '#c5d998',
+        far: '#2f4851', near: '#233641', windows: '#a9bd8c', ground: '#263b3b',
+        groundTop: '#93a668', groundStripe: '#38504a', groundShadow: '#1c3032',
+        platform: '#3c5050', platformTop: '#a7b86f', platformBlocks: '#293b40',
+        platformDetail: '#607e69', grass: '#8a9b61', enemyVest: '#777d4a',
+        enemyHelmet: '#a8ad62', boss: '#607167', bossHighlight: '#91a077'
+      }
+    }
   ];
   const state = {
     mode: 'title', score: 0, camera: 0, elapsed: 0, lastTime: 0,
     player: null, bullets: [], enemyBullets: [], grenades: [], enemies: [], particles: [],
-    boss: null, shake: 0, muted: false, soundContext: null
+    boss: null, stageIndex: 0, stageBanner: 0, shake: 0, muted: false, soundContext: null
   };
 
   const playerStart = () => ({ x: 86, y: groundY - 43, w: 27, h: 43, vx: 0, vy: 0, facing: 1, grounded: true, health: 3, invulnerable: 0, fireTimer: 0, grenadeCooldown: 0 });
@@ -32,17 +66,30 @@
     state.score = 0;
     state.camera = 0;
     state.elapsed = 0;
+    state.stageIndex = 0;
+    state.stageBanner = 0;
     state.bullets = [];
     state.enemyBullets = [];
     state.grenades = [];
     state.particles = [];
-    state.enemies = enemySpawns.map((x, index) => ({ x, y: groundY - 32, w: 25, h: 32, hp: 2, speed: 28 + (index % 3) * 7, fireTimer: random(.5, 2), alive: true, phase: random(0, 8) }));
     state.player = playerStart();
-    state.boss = { x: 4890, y: groundY - 83, w: 80, h: 83, hp: 18, maxHp: 18, fireTimer: 1.1, alive: true };
+    activateStage(0);
     updateHud();
-    document.querySelector('#boss-warning').hidden = true;
-    document.querySelector('#stage-label').textContent = 'INSERTION POINT';
     document.querySelector('#progress-fill').style.width = '0%';
+  }
+
+  function activateStage(index) {
+    const stage = stages[index];
+    state.enemies = stage.enemySpawns.map((offset, enemyIndex) => ({
+      x: stage.start + offset, y: groundY - 32, w: 25, h: 32,
+      hp: index === 2 ? 3 : 2, speed: 28 + index * 6 + (enemyIndex % 3) * 7,
+      fireTimer: random(.7, 1.8), alive: true, phase: random(0, 8)
+    }));
+    const bossX = stage.start + stage.length - 180;
+    state.boss = { x: bossX, y: groundY - 83, w: 80, h: 83, hp: stage.bossHp, maxHp: stage.bossHp, fireTimer: 1.1, alive: true };
+    document.querySelector('#mission-status').textContent = `STAGE ${String(index + 1).padStart(2, '0')} / ${String(stages.length).padStart(2, '0')}`;
+    document.querySelector('#stage-label').textContent = `STAGE ${String(index + 1).padStart(2, '0')} // ${stage.name}`;
+    document.querySelector('#boss-warning').hidden = true;
   }
 
   function startGame() {
@@ -57,8 +104,8 @@
   function endGame(won) {
     state.mode = won ? 'won' : 'lost';
     overlay.classList.remove('is-hidden');
-    document.querySelector('#overlay-title').innerHTML = won ? 'OUTPOST<br><span>SECURED.</span>' : 'SIGNAL<br><span>LOST.</span>';
-    document.querySelector('#overlay-copy').textContent = won ? 'The line is broken. The outpost is yours. Nice work, soldier.' : 'The field went quiet. Take a breath, lock and load, and make another push.';
+    document.querySelector('#overlay-title').innerHTML = won ? 'MISSION<br><span>COMPLETE.</span>' : 'SIGNAL<br><span>LOST.</span>';
+    document.querySelector('#overlay-copy').textContent = won ? 'All three sectors are clear. The line is broken, soldier.' : 'The field went quiet. Take a breath, lock and load, and make another push.';
     document.querySelector('#start-label').textContent = won ? 'RUN IT BACK' : 'REDEPLOY';
     document.querySelector('.overlay-foot').textContent = 'PRESS ENTER TO DEPLOY AGAIN';
   }
@@ -68,6 +115,41 @@
     const health = state.player?.health ?? 3;
     document.querySelector('#health').textContent = `${'◆ '.repeat(health).trim()}${health < 3 ? ` ${'◇ '.repeat(3 - health).trim()}` : ''}`;
     document.querySelector('#health').setAttribute('aria-label', `${health} lives remaining`);
+  }
+
+  function defeatBoss() {
+    const boss = state.boss;
+    if (!boss.alive) return;
+    boss.alive = false;
+    state.score += 1500;
+    burst(boss.x + boss.w / 2, boss.y + boss.h / 2, '#ff6d43', 38);
+    if (state.stageIndex === stages.length - 1) {
+      endGame(true);
+      return;
+    }
+    state.stageIndex++;
+    const nextStage = stages[state.stageIndex];
+    state.player.x = nextStage.start + 72;
+    state.player.y = groundY - state.player.h;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.health = Math.min(3, state.player.health + 1);
+    state.player.invulnerable = 1.5;
+    state.camera = Math.max(0, state.player.x - 260);
+    state.bullets = [];
+    state.enemyBullets = [];
+    state.grenades = [];
+    activateStage(state.stageIndex);
+    state.stageBanner = 2.4;
+    updateHud();
+    playTone(620, .2, 'triangle');
+  }
+
+  function damageBoss(amount, x, y) {
+    if (!state.boss.alive) return;
+    state.boss.hp -= amount;
+    burst(x, y, '#ffba56', 3);
+    if (state.boss.hp <= 0) defeatBoss();
   }
 
   function playTone(frequency, duration = .08, wave = 'square') {
@@ -159,13 +241,13 @@
     }
 
     const boss = state.boss;
-    if (boss.alive && state.player.x > 4540) {
+    if (boss.alive && state.player.x > boss.x - 390) {
       document.querySelector('#boss-warning').hidden = false;
-      document.querySelector('#stage-label').textContent = 'HEAVY UNIT // ENGAGED';
+      document.querySelector('#stage-label').textContent = `${stages[state.stageIndex].bossName} // ENGAGED`;
       boss.fireTimer -= delta;
       boss.y = groundY - boss.h + Math.sin(state.elapsed * 2.2) * 7;
       if (boss.fireTimer <= 0) {
-        boss.fireTimer = .85;
+        boss.fireTimer = Math.max(.55, .9 - state.stageIndex * .12);
         const direction = state.player.x < boss.x ? -1 : 1;
         state.enemyBullets.push({ x: boss.x + (direction < 0 ? 0 : boss.w), y: boss.y + 37, vx: direction * 310, life: 2.4, heavy: true });
         playTone(82, .12, 'sawtooth');
@@ -210,14 +292,7 @@
       const boss = state.boss;
       if (boss.alive && bullet.life > 0 && bullet.x > boss.x && bullet.x < boss.x + boss.w && bullet.y > boss.y && bullet.y < boss.y + boss.h) {
         bullet.life = 0;
-        boss.hp--;
-        burst(bullet.x, bullet.y, '#ffba56', 3);
-        if (boss.hp <= 0) {
-          boss.alive = false;
-          state.score += 1500;
-          burst(boss.x + boss.w / 2, boss.y + boss.h / 2, '#ff6d43', 38);
-          endGame(true);
-        }
+        damageBoss(1, bullet.x, bullet.y);
       }
     }
     state.bullets = state.bullets.filter(bullet => bullet.life > 0 && bullet.x > state.camera - 100 && bullet.x < state.camera + canvas.width + 100);
@@ -247,10 +322,7 @@
         for (const enemy of state.enemies) {
           if (enemy.alive && Math.abs(enemy.x - grenade.x) < 115) { enemy.alive = false; state.score += 100; }
         }
-        if (state.boss.alive && Math.abs(state.boss.x - grenade.x) < 130) {
-          state.boss.hp -= 4;
-          if (state.boss.hp <= 0) { state.boss.alive = false; state.score += 1500; endGame(true); }
-        }
+        if (state.boss.alive && Math.abs(state.boss.x - grenade.x) < 130) damageBoss(4, grenade.x, grenade.y);
       }
     }
     state.grenades = state.grenades.filter(grenade => {
@@ -271,24 +343,28 @@
   function update(delta) {
     if (state.mode !== 'playing') return;
     state.elapsed += delta;
+    state.stageBanner = Math.max(0, state.stageBanner - delta);
     movePlayer(delta);
     updateEnemies(delta);
     updateProjectiles(delta);
-    if (state.player.x > 4500 && state.boss.alive) document.querySelector('#stage-label').textContent = 'LAST STAND // 01';
-    else if (state.player.x > 2800) document.querySelector('#stage-label').textContent = 'ENEMY TERRITORY';
-    else if (state.player.x > 1100) document.querySelector('#stage-label').textContent = 'NO TURNING BACK';
-    document.querySelector('#progress-fill').style.width = `${Math.min(100, state.player.x / (worldWidth - 350) * 100)}%`;
+    if (state.boss.alive && state.player.x > state.boss.x - 390) document.querySelector('#stage-label').textContent = `${stages[state.stageIndex].bossName} // ENGAGED`;
+    else document.querySelector('#stage-label').textContent = `STAGE ${String(state.stageIndex + 1).padStart(2, '0')} // ${stages[state.stageIndex].name}`;
+    const stage = stages[state.stageIndex];
+    const stageProgress = Math.min(1, Math.max(0, (state.player.x - stage.start) / stage.length));
+    const missionProgress = state.mode === 'won' ? 100 : ((state.stageIndex + stageProgress) / stages.length) * 100;
+    document.querySelector('#progress-fill').style.width = `${missionProgress}%`;
     updateHud();
   }
 
   function drawBackground() {
+    const palette = stages[state.stageIndex].palette;
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#142526');
-    gradient.addColorStop(.58, '#314139');
-    gradient.addColorStop(1, '#786147');
+    gradient.addColorStop(0, palette.skyTop);
+    gradient.addColorStop(.58, palette.skyMid);
+    gradient.addColorStop(1, palette.skyBottom);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#d9bf76';
+    ctx.fillStyle = palette.sun;
     ctx.globalAlpha = .75;
     ctx.beginPath();
     ctx.arc(760 - state.camera * .06, 110, 39, 0, Math.PI * 2);
@@ -300,11 +376,11 @@
       ctx.fillStyle = index % 4 === 0 ? '#d4cd9d' : '#9eb6a0';
       ctx.fillRect(x, y, index % 5 === 0 ? 3 : 2, 2);
     }
-    drawSkyline('#283a35', .2, 325, 16, 55);
-    drawSkyline('#1d2b28', .4, 378, 27, 85);
+    drawSkyline(palette.far, .2, 325, 16, 55, palette.windows);
+    drawSkyline(palette.near, .4, 378, 27, 85, palette.windows);
   }
 
-  function drawSkyline(color, parallax, base, width, maxHeight) {
+  function drawSkyline(color, parallax, base, width, maxHeight, windows) {
     const offset = state.camera * parallax;
     ctx.fillStyle = color;
     for (let index = 0; index < 34; index++) {
@@ -313,7 +389,7 @@
       const height = 22 + (index * 31 % maxHeight);
       ctx.fillRect(screenX, base - height, width, height);
       if (index % 3 === 0) {
-        ctx.fillStyle = '#71866b';
+        ctx.fillStyle = windows;
         ctx.fillRect(screenX + 5, base - height + 12, 3, 5);
         ctx.fillRect(screenX + width - 8, base - height + 25, 3, 5);
         ctx.fillStyle = color;
@@ -322,34 +398,35 @@
   }
 
   function drawTerrain() {
-    ctx.fillStyle = '#263d2d';
+    const palette = stages[state.stageIndex].palette;
+    ctx.fillStyle = palette.ground;
     ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-    ctx.fillStyle = '#75844a';
+    ctx.fillStyle = palette.groundTop;
     ctx.fillRect(0, groundY, canvas.width, 5);
     const offset = state.camera % 44;
     for (let x = -offset; x < canvas.width; x += 44) {
-      ctx.fillStyle = '#364b34';
+      ctx.fillStyle = palette.groundStripe;
       ctx.fillRect(x, groundY + 10, 24, 4);
-      ctx.fillStyle = '#202f2b';
+      ctx.fillStyle = palette.groundShadow;
       ctx.fillRect(x + 13, groundY + 27, 18, 3);
     }
     for (const platform of platforms) {
       const x = Math.round(platform.x - state.camera);
       if (x + platform.w < 0 || x > canvas.width) continue;
-      ctx.fillStyle = '#43533a';
+      ctx.fillStyle = palette.platform;
       ctx.fillRect(x, platform.y, platform.w, 12);
-      ctx.fillStyle = '#a4a75d';
+      ctx.fillStyle = palette.platformTop;
       ctx.fillRect(x, platform.y, platform.w, 3);
-      ctx.fillStyle = '#2c3c31';
+      ctx.fillStyle = palette.platformBlocks;
       for (let block = x + 7; block < x + platform.w; block += 29) ctx.fillRect(block, platform.y + 12, 18, 31);
-      ctx.fillStyle = '#687248';
+      ctx.fillStyle = palette.platformDetail;
       ctx.fillRect(x + 6, platform.y + 11, 6, 4);
       ctx.fillRect(x + platform.w - 17, platform.y + 11, 7, 4);
     }
     for (let index = 0; index < 18; index++) {
       const x = (index * 173 - state.camera * .92 + 25000) % 5300 - state.camera;
       if (x > -30 && x < canvas.width + 30) {
-        ctx.fillStyle = '#526348';
+        ctx.fillStyle = palette.grass;
         ctx.fillRect(x, groundY - 9, 4, 9);
         ctx.fillRect(x - 3, groundY - 8, 3, 5);
         ctx.fillRect(x + 4, groundY - 12, 3, 6);
@@ -362,8 +439,9 @@
     ctx.save();
     ctx.translate(Math.round(x - state.camera), Math.round(y));
     if (facing < 0) { ctx.translate(27, 0); ctx.scale(-1, 1); }
-    const vest = enemy ? '#b65337' : '#a9bd53';
-    const helmet = enemy ? '#e28343' : '#87944a';
+    const palette = stages[state.stageIndex].palette;
+    const vest = enemy ? palette.enemyVest : '#a9bd53';
+    const helmet = enemy ? palette.enemyHelmet : '#87944a';
     ctx.fillStyle = '#26342b'; ctx.fillRect(5, 31, 8, 11); ctx.fillRect(16, 31, 8, 11);
     ctx.fillStyle = '#1a2420'; ctx.fillRect(3, 39, 11, 4); ctx.fillRect(15, 39, 11, 4);
     ctx.fillStyle = vest; ctx.fillRect(4, 17, 20, 16); ctx.fillRect(2, 20, 5, 12);
@@ -377,11 +455,12 @@
   function drawBoss() {
     const boss = state.boss;
     if (!boss?.alive) return;
+    const palette = stages[state.stageIndex].palette;
     const x = Math.round(boss.x - state.camera);
     if (x < -100 || x > canvas.width + 100) return;
     ctx.fillStyle = '#20251f'; ctx.fillRect(x + 8, boss.y + 54, 25, 26); ctx.fillRect(x + 49, boss.y + 54, 25, 26);
-    ctx.fillStyle = '#8d4334'; ctx.fillRect(x + 3, boss.y + 22, 74, 42);
-    ctx.fillStyle = '#ba6841'; ctx.fillRect(x + 14, boss.y + 7, 53, 26);
+    ctx.fillStyle = palette.boss; ctx.fillRect(x + 3, boss.y + 22, 74, 42);
+    ctx.fillStyle = palette.bossHighlight; ctx.fillRect(x + 14, boss.y + 7, 53, 26);
     ctx.fillStyle = '#f2bb64'; ctx.fillRect(x + 52, boss.y + 15, 14, 6);
     ctx.fillStyle = '#373b31'; ctx.fillRect(x - 4, boss.y + 38, 24, 9); ctx.fillRect(x + 61, boss.y + 35, 29, 8);
     ctx.fillStyle = '#d9e0ca'; ctx.fillRect(x + 68, boss.y + 36, 7, 3);
@@ -427,6 +506,23 @@
     vignette.addColorStop(1, 'rgba(5, 10, 9, .12)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (state.stageBanner > 0) {
+      const stage = stages[state.stageIndex];
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, state.stageBanner * 2);
+      ctx.fillStyle = 'rgba(10, 15, 13, .88)';
+      ctx.fillRect(canvas.width / 2 - 210, 82, 420, 72);
+      ctx.fillStyle = stage.palette.platformTop;
+      ctx.fillRect(canvas.width / 2 - 210, 82, 4, 72);
+      ctx.fillStyle = '#aab4aa';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`SECTOR 0${state.stageIndex + 1} // CHECKPOINT SECURED`, canvas.width / 2, 108);
+      ctx.fillStyle = '#e8eee8';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(stage.name, canvas.width / 2, 137);
+      ctx.restore();
+    }
   }
 
   function frame(timestamp) {
